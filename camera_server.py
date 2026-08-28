@@ -32,20 +32,20 @@ def timelapse_loop():
         
         try:
             print(f"[{datetime.now()}] Capturing snapshot...")
-            # Capture using the dedicated 'still' encoder channel configuration
+            # Use dedicated still sensor channel configuration for high-res photo capture
             picam.capture_file(output_path, encoder="still")
             threading.Thread(target=git_backup, args=(filename,), daemon=True).start()
         except Exception as e:
             print(f"Camera frame capture failed: {e}")
 
-# Configure dual streams: main video for the web, still for high-res photos
-config = picam.create_still_configuration(main={"size": (1280, 720)}, still={"size": (3280, 2464)})
+# Build explicit configuration avoiding unallocated raw formats
+config = picam.create_still_configuration(main={"size": (640, 480)}, still={"size": (3280, 2464)})
 picam.configure(config)
 
-# CRITICAL FOR HEADLESS: preview=None prevents the script from looking for a GUI display
+# CRITICAL FOR HEADLESS SSH: Disables local display layout rendering pipelines
 picam.start(preview=None)
 
-# Initialize the official built-in WebServer module on port 8000
+# Initialize the official Raspberry Pi WebServer module on port 8000
 server = WebServer(picam, port=8000)
 print("Livestream server active at http://veerpiquick.local:8000")
 
