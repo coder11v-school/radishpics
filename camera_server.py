@@ -9,6 +9,7 @@ from picamera2.outputs import WebServer
 REPO_DIR = os.path.expanduser("~/radishpics")
 INTERVAL_SECONDS = 600  # 10 minutes
 
+# Force camera to initialize without a GUI window dependency
 picam = Picamera2()
 
 def git_backup(filename):
@@ -17,12 +18,12 @@ def git_backup(filename):
         commit_msg = f"Automated capture: {filename}"
         subprocess.run(["git", "commit", "-m", commit_msg], cwd=REPO_DIR, check=True)
         subprocess.run(["git", "push", "origin", "main"], cwd=REPO_DIR, check=True)
-        print(f"[{datetime.now()}] Pushed {filename} to GitHub!")
+        print(f"[{datetime.now()}] Successfully pushed {filename} to GitHub!")
     except Exception as e:
-        print(f"Git push failed: {e}")
+        print(f"Git backup pipeline failed: {e}")
 
 def timelapse_loop():
-    print(f"Timelapse loop running. Interval: {INTERVAL_SECONDS} seconds.")
+    print(f"Headless timelapse engine active. Tracking interval: {INTERVAL_SECONDS}s")
     while True:
         time.sleep(INTERVAL_SECONDS)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -30,24 +31,23 @@ def timelapse_loop():
         output_path = os.path.join(REPO_DIR, filename)
         
         try:
-            print(f"[{datetime.now()}] Capturing image...")
-            # Capture file mid-stream without breaking the active web feed
+            print(f"[{datetime.now()}] Capturing snapshot...")
+            # Capture file mid-stream using the primary sensor encoder matrix
             picam.capture_file(output_path)
-            # Offload Git changes to a background task so video feed stays fluid
             threading.Thread(target=git_backup, args=(filename,), daemon=True).start()
         except Exception as e:
-            print(f"Capture failed: {e}")
+            print(f"Camera frame reservation capture failed: {e}")
 
-# Create standard 720p stream configuration settings
+# Create an explicit lowres setup layout to bypass X11 window allocations
 config = picam.create_video_configuration(main={"size": (1280, 720)})
 picam.configure(config)
 picam.start()
 
-# Use Picamera2's official native web server suite
+# Initialize the official Raspberry Pi WebServer module on port 8000
 server = WebServer(picam, port=8000)
 print("Livestream server active at http://veerpiquick.local:8000")
 
-# Spin up the background 10-minute snapshot timer loop thread
+# Start timelapse background worker thread loop
 threading.Thread(target=timelapse_loop, daemon=True).start()
 
 try:
